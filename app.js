@@ -282,7 +282,20 @@ cmd.one(/^(?:id)\s([^]+)$/i, async (message, bot) => {
             message.user.task[message.user.current].peerId = message.args[1];
             return bot(`Путь изменен на ${message.args[1]}`);
         }else{
-            return bot(`ошибка,попробуйте снова`)
+            let m = /^(?:https)\:\/\/(?:vk.com)\//i;
+            if (m.test(message.args[1])) {
+                let id
+                message.args[1] = message.args[1].replace(/(?:https)\:\/\/(?:vk.com)\//gi, "");
+                await vk.api.utils.resolveScreenName({screen_name: message.args[1]})
+                    .then(async (res) => {
+                         id = res.object_id;
+                         if(res.type === `group`) id *=-1;
+                         if (!id)return bot(`ошибка,попробуйте снова`);
+                         else message.user.task[message.user.current].peerId = id;
+                         return bot(`Путь изменен на ${id}`);
+                    })
+            }
+
         }
     }else{
         return bot(`Настройка текущего задания недоступна`);
