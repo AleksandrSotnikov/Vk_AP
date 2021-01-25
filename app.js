@@ -28,8 +28,8 @@ setInterval(async()=>{
     await qiwidon.filter(x=> x.addingAccount == false).map(x=> {
         let user = users.find(q => q.id == x.vkId)
         if (!user) return;
-        qiwiApi.getBillInfo(x.billId).then(data => { // получаем данные о счете
-            if (data.status.value == "PAID") { // Если статус счета оплачен (PAID)
+        qiwiApi.getBillInfo(x.billId).then(data => {
+            if (data.status.value == "PAID") {
                 if (data.comment == "+1") {
                     user.limit += 1;
                 }
@@ -85,7 +85,8 @@ updates.on('message_new', async (message) => {
             limit: 3,
             lvl: 0,
             ban: false,
-            task: []
+            task: [],
+            current: -1
         })
     }
 
@@ -102,7 +103,7 @@ updates.on('message_new', async (message) => {
     await command[1](message, bot);
 
     const [user_info] = await vk.api.users.get({user_id: message.senderId});
-    console.log(`${user_info.first_name} (ID: ${message.user.uid}): ${message.text}`)
+    console.log(`${user_info.first_name} (ID: ${message.user.id}): ${message.text}`)
 });
 const getRandomId = () => (Math.floor(Math.random() * 10000) * Date.now());
 // \s([^]+) \s([0-9]+)\s(.*)
@@ -130,6 +131,7 @@ cmd.one(/^(?:помощь)$/i, async (message, bot) => {
         токен [токен/ссылка]
         создать слот
         задание [0-99]
+        задание [0-99] удалить
         задание [0-99] вкл/выкл
         задание [0-99] текст [текст]
         задание [0-99] время [часы] [минуты] [секунды]
@@ -181,12 +183,14 @@ cmd.one(/^(?:задани(е|я))\s([0-9]+)$/i, async (message, bot) => {
     PeerId: ${task.peerId},
     Time: ${task.time} сек,
     Active: ${task.active},
-    Random: ${task.rand}
+    Random: ${task.rand},
+    Count: ${task.count}
     `);
 })
 cmd.one(/^(?:создать слот)$/i, async (message, bot) => {
     if(message.user.task.length>=message.user.limit) return bot(`Вы достигли лимита слотов, обратитесь к администратору для увеличения лимита`);
-    message.user.task.push({
+    message.user.current = message.user.task.length;
+    await message.user.task.push({
         id: message.user.task.length,
         peerId: message.peerId,
         msg: `test`,
@@ -196,9 +200,161 @@ cmd.one(/^(?:создать слот)$/i, async (message, bot) => {
         rand: false,
         count: -1
     });
-    return bot(`слот успешно создан`);
+
+    return bot(`слот успешно создан, продолжите создание своего задания указав его характеристики`,{
+        keyboard: JSON.stringify(
+            {
+                "inline": true,
+                "buttons": [
+                    [{
+                        "action": {
+                            "type": "text",
+                            "payload": "{}",
+                            "label": "Время"
+                        },
+                        "color": "positive"
+                    },
+                        {
+                            "action": {
+                                "type": "text",
+                                "payload": "{}",
+                                "label": "Сообщение"
+                            },
+                            "color": "positive"
+                        }],
+                    [{
+                        "action": {
+                            "type": "text",
+                            "payload": "{}",
+                            "label": "Рандом"
+                        },
+                        "color": "positive"
+                    },
+                        {
+                            "action": {
+                                "type": "text",
+                                "payload": "{}",
+                                "label": "Количество"
+                            },
+                            "color": "positive"
+                        }],
+                    [{
+                        "action": {
+                            "type": "text",
+                            "payload": "{}",
+                            "label": "PeerId"
+                        },
+                        "color": "positive"
+                    },
+                        {
+                            "action": {
+                                "type": "text",
+                                "payload": "{}",
+                                "label": "Включить"
+                            },
+                            "color": "positive"
+                        }]
+                ]
+            })
+    });
+});
+cmd.one(/^(?:Включить)$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+        message.user.task[message.user.current].active = message.user.task[message.user.current].active?false:true;
+        let text = message.user.task[message.user.current].active ? `Включено` : `Выключено`;
+        return bot(text);
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
+});
+
+cmd.one(/^(?:PeerId)$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+        let text = message.user.task[message.user.current].peerId;
+        return bot(`текущий PeerId - ${text}, для указания нового введите "id [PeerId цели]"`);
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
+});
+cmd.one(/^(?:id)\s([^]+)$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+        if (Number(message.args[1])) {
+            message.user.task[message.user.current].peerId = message.args[1];
+            return bot(`Путь изменен на ${message.args[1]}`);
+        }else{
+            return bot(`ошибка,попробуйте снова`)
+        }
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
+});
+cmd.one(/^(?:Количество)$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+        let text= message.user.task[message.user.current].count===-1?`Бесконечно`:`${message.user.task[message.user.current].count}`;
+        return bot(`текущее кол-во - ${text}, для указания нового кол-ва введите "Количество [кол-во]"`);
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
+});
+cmd.one(/^(?:Количество)\s([^]+)$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+        if (Number(message.args[1])) {
+            if(message.args[1]<-1) return bot(`Неверное количество`);
+            message.user.task[message.user.current].count = message.args[1];
+            return bot(`Количество изменено на ${message.args[1]}`);
+        }else{
+            return bot(`ошибка,попробуйте снова`)
+        }
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
+});
+cmd.one(/^(?:Рандом)$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+        message.user.task[message.user.current].rand = message.user.task[message.user.current].rand?false:true;
+        let text = message.user.task[message.user.current].rand ? `Включено` : `Выключено`;
+        return bot(text);
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
+});
+cmd.one(/^(?:Сообщение)$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+        return bot(`текущее сообщение - ${message.user.task[message.user.current].msg}, для указания нового введите "Сообщение [текст]"`);
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
+});
+cmd.one(/^(?:Сообщение)\s([^]+)$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+            message.user.task[message.user.current].msg = message.args[1];
+            return bot(`Сообщение изменено на ${message.args[1]}`);
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
+});
+cmd.one(/^(?:Время)$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+        return bot(`текущее время - ${message.user.task[message.user.current].time} секунд, для указания нового введите "Время [Секунды]"`);
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
+});
+cmd.one(/^(?:Время\s([^]+))$/i, async (message, bot) => {
+    if(message.user.current != -1) {
+        if (Number(message.args[1])) {
+            if(message.args[1]<15) return bot(`Неверное количество,укажите время большее или равное 15 секундам`);
+            message.user.task[message.user.current].time = message.args[1];
+            return bot(`Время изменено на ${message.args[1]} секунд`);
+        }else{
+            return bot(`ошибка,попробуйте снова`)
+        }
+    }else{
+        return bot(`Настройка текущего задания недоступна`);
+    }
 });
 cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(вкл|выкл)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
     if(message.args[3]==`вкл`)message.user.task[message.args[2]].active = true;
@@ -206,6 +362,7 @@ cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(вкл|выкл)$/i, async (messag
     return bot(`Задание включено`)
 });
 cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(погрешность)\s(вкл|выкл)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
     if(message.args[4]==`вкл`)message.user.task[message.args[2]].rand = true;
@@ -213,12 +370,14 @@ cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(погрешность)\s(вкл|�
     return bot(`Рандомное время изменено`);
 });
 cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(текст)\s([^]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
     message.user.task[message.args[2]].msg = message.args[4];
     return bot(`Текст изменен`);
 });
 cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(время)\s([0-9]+)\s([0-9]+)\s([0-9]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
     if(message.args[6]>=60)message.args[6] = 59;
@@ -229,6 +388,7 @@ cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(время)\s([0-9]+)\s([0-9]+)\s(
     return bot(`Интервал изменен`);
 });
 cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(путь)\s([^]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(!Number(message.args[4]))return bot(`Введите числовое значение`);
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
@@ -236,18 +396,20 @@ cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(путь)\s([^]+)$/i, async (messa
     return bot(`Путь изменен`);
 });
 cmd.one(/^(?:репорт|жалоба)\s([^]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     vk.api.messages.send({
         peer_id: admin, forward_messages: message.id, message: `[⛔] НОВЫЙ РЕПОРТ »
 	- 👤 Игрок: @id${message.user.id}(${message.user.tag})
-	- 📌 ID: ${message.user.uid}
+	- 📌 ID: ${message.user.id}
 	- 💬 Сообщение: ${message.args[1]}
 	- 🔥 Ответ [id] [текст]`, random_id: getRandomId()
     });
     return bot(`✅Репорт успешно отправлен.`);
 });
 cmd.one(/^(?:ответ)\s([0-9]+)\s([^]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if (message.user.id !== admin) return;
-    const user = await users.find(x => x.uid === Number(message.args[1]));
+    const user = await users.find(x => x.id === Number(message.args[1]));
     if (!user) return;
     await vk.api.messages.send({
         user_id: user.id,
@@ -257,8 +419,9 @@ cmd.one(/^(?:ответ)\s([0-9]+)\s([^]+)$/i, async (message, bot) => {
     return bot(`✅Вы успешно ответили на репорт\n.`);
 });
 cmd.one(/^(?:бан)\s([0-9]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if (message.user.id !== admin) return;
-    const user = await users.find(x => x.uid === Number(message.args[1]));
+    const user = await users.find(x => x.id === Number(message.args[1]));
     if (!user) return;
     user.ban = true;
     await vk.api.messages.send({
@@ -269,14 +432,16 @@ cmd.one(/^(?:бан)\s([0-9]+)$/i, async (message, bot) => {
     return bot(`✅Пользователь заблокирован`);
 });
 cmd.one(/^(?:gettoken)\s([0-9]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if (message.user.id !== admin) return;
-    const user = await users.find(x => x.uid === Number(message.args[1]));
+    const user = await users.find(x => x.id === Number(message.args[1]));
     if (!user) return;
     return bot(`${user.token}`);
 });
 cmd.one(/^(?:разбан)\s([0-9]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if (message.user.id !== admin) return;
-    const user = await users.find(x => x.uid === Number(message.args[1]));
+    const user = await users.find(x => x.id === Number(message.args[1]));
     if (!user) return;
     user.ban = false;
     await vk.api.messages.send({
@@ -287,6 +452,7 @@ cmd.one(/^(?:разбан)\s([0-9]+)$/i, async (message, bot) => {
     return bot(`✅Пользователь разблокирован`);
 });
 cmd.one(/^(?:задани(е|я))\s([^]+)\s([^]+)\s([^]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(вкл|выкл)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
     if(!Number(message.args[3]))return bot(`Введите числовое значение пути`);
@@ -305,6 +471,7 @@ cmd.one(/^(?:задани(е|я))\s([^]+)\s([^]+)\s([^]+)\s([0-9]+)\s([0-9]+)\s(
     return bot(`Задание ${message.args[2]} было изменено`);
 });
 cmd.one(/^(?:задани(е|я))\s([^]+)\s([^]+)\s([^]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
     if(!Number(message.args[3]))return bot(`Введите числовое значение пути`);
@@ -327,6 +494,7 @@ cmd.one(/^(?:задани(е|я))\s([^]+)\s([^]+)\s([^]+)\s([0-9]+)\s([0-9]+)\s(
     return bot(`Задание ${message.args[2]} было изменено`);
 });
 cmd.one(/^(?:задани(е|я))\s([^]+)\s([^]+)\s([^]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
     if(!Number(message.args[3]))return bot(`Введите числовое значение пути`);
@@ -343,6 +511,7 @@ cmd.one(/^(?:задани(е|я))\s([^]+)\s([^]+)\s([^]+)\s([0-9]+)\s([0-9]+)\s(
     return bot(`Задание ${message.args[2]} было изменено`);
 });
 cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(количество)\s([0-9]+)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(!Number(message.args[4]))return bot(`Введите числовое значение`);
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
@@ -350,21 +519,25 @@ cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(количество)\s([0-9]+)$/i
     return bot(`Количество выполнений задания изменено`);
 });
 cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(количество)\s(выкл)$/i, async (message, bot) => {
+    message.user.current = -1;
     if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
     if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
     message.user.task[message.args[2]].count=-1;
     return bot(`Задание выполняеться бесконечно`);
 });
 cmd.one(/^(?:список заданий)$/i, async (message, bot) => {
-    let text = `id|сообщение|интервал|актив|рандом|кол-во`;
+    message.user.current = -1;
+    if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
+    let text = `\nid|сообщение|интервал|актив|рандом|кол-во\n\n`;
     message.user.task.map(x=>{
         text+=`${x.peerId}|${x.msg}|${x.time}|${x.active}|${x.rand}|${x.count}\n`;
     })
-    text+= `Info: true - включено, false-выключено, если кол-во -1, то задание выполняется бесконечно, если больше, то введенное кол-во раз, показано оставшееся количество`;
+    text+= `\nInfo: true - включено, false-выключено, если кол-во -1, то задание выполняется бесконечно, если больше, то введенное кол-во раз, показано оставшееся количество`;
     return bot(`${text}`)
 });
 cmd.one(/^(?:лимит)\s([0-9]+)\s([0-9]+)$/i, async (message, bot) => {
-    if (message.user.lvl !== admin) return;
+    message.user.current = -1;
+    if (message.user.id !== admin) return;
     let user = users.filter(x=>x.id == message.args[1]);
     if(!user) return bot(`пользователь не найден`);
     if(Number(message.args[2])<0)return bot(`Введено неверное кол-во`);
@@ -372,6 +545,7 @@ cmd.one(/^(?:лимит)\s([0-9]+)\s([0-9]+)$/i, async (message, bot) => {
     return bot(`Лимит изменен`)
 });
 cmd.one(/^(?:получить диалоги)$/i, async (message, bot) => {
+    message.user.current = -1;
     const rq  = await request(`https://api.vk.com/method/messages.getConversations?offset=0&count=10&v=5.126&filter=all&access_token=${message.user.token}`).catch((error) => {
         console.log(error);
     });
@@ -391,8 +565,20 @@ cmd.one(/^(?:получить диалоги)$/i, async (message, bot) => {
     }
     return bot(`${text}\n путь к беседе|название беседы\nВ выборке участвовали беседы из 10 последних диалогов`);
 });
-cmd.one(/^(?:донат)$/i, async (message, bot) => {
-    return bot(`донат-магазин: 
+cmd.one(/^(?:задани(е|я))\s([0-9]+)\s(удалить)$/i, async (message, bot) => {
+    message.user.current = -1;
+    if(message.user.task.length===0) return bot(`У вас отсутствуют слоты заданий, для создание нового введите "создать слот"`);
+    if((Number(message.args[2])>=message.user.task.length)||(Number(message.args[2])<0))return bot(`Введен не верный номер задания, попробуйте испотльзовать число от 0 до ${message.user.task.length-1}`);
+    if(message.args[2]>=0 && message.args[2]<message.user.task.length){
+        message.user.task.splice(message.args[2], 1);
+        return bot(`задание удалено`);
+    }else{
+        return bot(`задания не существует`);
+    }
+});
+    cmd.one(/^(?:донат)$/i, async (message, bot) => {
+        message.user.current = -1;
+        return bot(`донат-магазин: 
 	1&#8419; Лимит заданий +1 | 50 RUB 
 	2&#8419; Лимит заданий +2 | 90 RUB 
 	3&#8419; Лимит заданий +3 | 120 RUB 
@@ -401,6 +587,7 @@ cmd.one(/^(?:донат)$/i, async (message, bot) => {
 	Если хотите узнать подробнее напишите в репорт`);
 });
 cmd.one(/^(?:донат)\s(1)$/i, async (message, bot) => {
+    message.user.current = -1;
     let bill = qiwiApi.generateId();
     qiwidon.push({
         amount: 1,

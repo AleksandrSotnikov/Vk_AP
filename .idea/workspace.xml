@@ -20,12 +20,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1e7f163-577d-4da5-8fb5-0eb74c75100c" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/database/qiwidon.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/app.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/node_modules/.package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/node_modules/.package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/users.json" beforeDir="false" afterPath="$PROJECT_DIR$/database/users.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,6 +90,11 @@
       <workItem from="1611248143893" duration="1777000" />
       <workItem from="1611249957522" duration="1778000" />
       <workItem from="1611251791831" duration="579000" />
+      <workItem from="1611252398131" duration="1875000" />
+      <workItem from="1611594545995" duration="1830000" />
+      <workItem from="1611596413702" duration="1774000" />
+      <workItem from="1611598459698" duration="1779000" />
+      <workItem from="1611600265769" duration="801000" />
     </task>
     <servers />
   </component>
