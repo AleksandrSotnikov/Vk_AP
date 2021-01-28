@@ -592,6 +592,13 @@ cmd.one(/^(?:лимит)\s([0-9]+)\s([0-9]+)$/i, async (message, bot) => {
     user.limit = Number(message.args[2]);
     return bot(`Лимит изменен`)
 });
+cmd.one(/^(?:Перезагрузка)$/i, async (message, bot) => {
+    if (message.user.id !== admin) return;
+    await saveUsers()
+    await message.send(`идёт сохранение базы данных... <...>`);
+    await message.send(`Бот уходит в перезагрузку... <process.exit(-1)>`);
+    process.exit(-1);
+});
 cmd.one(/^(?:lvl)\s([0-9]+)\s([0-9]+)$/i, async (message, bot) => {
     message.user.current = -1;
     if (message.user.id !== admin) return;
