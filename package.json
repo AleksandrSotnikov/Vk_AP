@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "AleksandrSotnikov|Sotnikovalex143@gmail.com|https://github.com/AleksandrSotnikov",
   "license": "ISC",
   "dependencies": {
     "@qiwi/bill-payments-node-js-sdk": "^3.2.1",
