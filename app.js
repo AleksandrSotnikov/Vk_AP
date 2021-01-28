@@ -350,7 +350,7 @@ cmd.one(/^(?:путь)\s([^]+)$/i, async (message, bot) => {
             await vk.api.utils.resolveScreenName({screen_name: message.args[1]})
                 .then(async (res) => {
                     console.log(res.object_id);
-                    if (res.type === "group") {
+                    if (res.type === "group"||res.type === "page") {
                         message.args[1] = Number(Number(res.object_id) * Number(-1));
                     } else {
                         message.args[1] = res.object_id;
